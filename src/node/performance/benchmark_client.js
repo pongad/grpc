@@ -39,6 +39,7 @@ var grpc = require('../../../');
 var serviceProto = grpc.load({
   root: __dirname + '/../../..',
   file: 'src/proto/grpc/testing/services.proto'}).grpc.testing;
+var gapic = require('./gapic');
 
 /**
  * Create a buffer filled with size zeroes
@@ -100,11 +101,24 @@ function BenchmarkClient(server_targets, channels, histogram_params,
   var GenericClient = grpc.makeGenericClientConstructor(genericService);
   this.genericClients = [];
 
+  // for (var i = 0; i < channels; i++) {
+  //   this.genericClients[i] = new GenericClient(
+  //       server_targets[i % server_targets.length], creds, options);
+  // }
+
+  // GAPIC
+  options['sslCreds'] = creds;
+  options['grpc'] = grpc;
+
   for (var i = 0; i < channels; i++) {
-    this.clients[i] = new serviceProto.BenchmarkService(
-        server_targets[i % server_targets.length], creds, options);
-    this.genericClients[i] = new GenericClient(
-        server_targets[i % server_targets.length], creds, options);
+    // this.clients[i] = new serviceProto.BenchmarkService(
+    //     server_targets[i % server_targets.length], creds, options);
+
+    var serv = server_targets[i % server_targets.length];
+    var colonPos = serv.indexOf(':');
+    options['servicePath'] = serv.substr(0, colonPos);
+    options['port'] = serv.substr(colonPos+1);
+    this.clients[i] = gapic(options).benchmarkServiceClient(options);
   }
 
   this.histogram = new Histogram(histogram_params.resolution,
@@ -130,9 +144,18 @@ util.inherits(BenchmarkClient, EventEmitter);
  */
 function startAllClients(client_list, outstanding_rpcs_per_channel, makeCall,
                          emitter) {
+  // var ready_wait_funcs = _.map(client_list, function(client) {
+  //   return _.partial(grpc.waitForClientReady, client, Infinity);
+  // });
+
   var ready_wait_funcs = _.map(client_list, function(client) {
-    return _.partial(grpc.waitForClientReady, client, Infinity);
+    return function(callback) {
+      client.stubPromise.then(function(stub){
+        grpc.waitForClientReady(stub, Infinity, callback);
+      });
+    };
   });
+  // _.client.stubPromise.then()
   async.parallel(ready_wait_funcs, function(err) {
     if (err) {
       emitter.emit('error', err);
@@ -179,7 +202,8 @@ BenchmarkClient.prototype.startClosedLoop = function(
     client_list = self.genericClients;
   } else {
     argument = {
-      response_size: resp_size,
+      responseSize: resp_size,
+      // response_size: resp_size,
       payload: {
         body: zeroBuffer(req_size)
       }
@@ -193,6 +217,8 @@ BenchmarkClient.prototype.startClosedLoop = function(
         self.pending_calls++;
         var start_time = process.hrtime();
         client.unaryCall(argument, function(error, response) {
+          // console.log(error);
+          // console.log(response);
           if (error) {
             self.emit('error', new Error('Client error: ' + error.message));
             self.running = false;

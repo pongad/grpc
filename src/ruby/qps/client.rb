@@ -24,6 +24,7 @@ $LOAD_PATH.unshift(this_dir) unless $LOAD_PATH.include?(this_dir)
 require 'grpc'
 require 'histogram'
 require 'src/proto/grpc/testing/services_services_pb'
+require 'gapic/lib/benchmark_service_client'
 
 class Poisson
   def interarrival
@@ -78,8 +79,17 @@ class BenchmarkClient
 
     (0..config.client_channels-1).each do |chan|
       gtbss = Grpc::Testing::BenchmarkService::Stub
+      gapic = Benchmark::BenchmarkServiceClient
+
       st = config.server_targets
-      stub = gtbss.new(st[chan % st.length], cred, **opts)
+      # stub = gtbss.new(st[chan % st.length], cred, **opts)
+
+      hostport = st[chan % st.length]
+      colon_pos = hostport =~ /:/
+      host = hostport[0...colon_pos]
+      port = hostport[colon_pos+1..-1].to_i
+      stub = gapic.new(channel: GRPC::ClientStub::setup_channel(nil, hostport, cred, opts[:channel_args]))
+
       (0..config.outstanding_rpcs_per_channel-1).each do |r|
         @child_threads << Thread.new {
           case config.load_params.load.to_s
@@ -110,7 +120,8 @@ class BenchmarkClient
     while !@done
       wait_to_issue(waiter)
       start = Time.now
-      resp = stub.unary_call(req)
+      # resp = stub.unary_call(req)
+      resp = stub.unary_call_req(req)
       @histogram.add((Time.now-start)*1e9)
     end
   end

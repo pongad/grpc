@@ -1,0 +1,8 @@
+--no-private
+--title=gRPC Benchmark API
+--exclude lib/
+--markup markdown
+
+./lib/**/*.rb
+-
+README.md

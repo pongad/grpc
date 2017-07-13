@@ -59,8 +59,8 @@ class BenchmarkClient:
 
         if config.payload_config.WhichOneof('payload') == 'simple_params':
             self._generic = False
-            self._stub = services_pb2.BenchmarkServiceStub(channel)
-            # self._stub = benchmark_service_client.BenchmarkServiceClient(channel=channel)
+            # self._stub = services_pb2.BenchmarkServiceStub(channel)
+            self._stub = benchmark_service_client.BenchmarkServiceClient(channel=channel)
             payload = messages_pb2.Payload(
                 body='\0' * config.payload_config.simple_params.req_size)
             self._request = messages_pb2.SimpleRequest(
@@ -113,8 +113,8 @@ class UnarySyncBenchmarkClient(BenchmarkClient):
 
     def _dispatch_request(self):
         start_time = time.time()
-        # self._stub._unary_call(self._request)
-        self._stub.UnaryCall(self._request, _TIMEOUT)
+        self._stub._unary_call(self._request)
+        # self._stub.UnaryCall(self._request, _TIMEOUT)
         end_time = time.time()
         self._handle_response(self, end_time - start_time)
 

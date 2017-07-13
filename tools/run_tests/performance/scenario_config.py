@@ -707,7 +707,8 @@ class PythonLanguage:
         'python_to_cpp_protobuf_sync_unary_qps', rpc_type='UNARY',
         client_type='SYNC_CLIENT', server_type='ASYNC_SERVER',
         unconstrained_client='sync',
-        server_language='c++', async_server_threads=1)
+        server_language='c++', async_server_threads=1,
+        categories=[SMOKETEST, SCALABLE])
 
     yield _ping_pong_scenario(
         'python_to_cpp_protobuf_sync_streaming_ping_pong', rpc_type='STREAMING',
